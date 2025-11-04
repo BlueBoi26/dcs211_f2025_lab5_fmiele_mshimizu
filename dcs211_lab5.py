@@ -47,7 +47,47 @@ def fetchDigit(df: pd.core.frame.DataFrame, which_row: int) -> tuple[int, np.nda
     pixels = np.reshape(pixels, (8,8))  # makes 8x8
     return (digit, pixels)              # return a tuple
 
+###########################################################################
+def cleanTheData(df:pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
+    """_summary_
+
+    Args:
+        df (pd.DataFrame): _description_
+
+    Returns:
+        tuple[pd.DataFrame, np.ndarray]: _description_
+    """
+    df_clean = df.copy()
+    df_clean = list(df_clean.dropna())   # this removes all rows with nan items
+    pixels = df_clean.columns            # "list" of columns
+    
+    # let's create a dictionary to look up any column index by name
+    pixel_name_to_index = {}
+    
+    for i, name in enumerate(pixels):
+        pixel_name_to_index[name] = i  # using the name (as key), assign the value (i)
+    df_clean = df_clean['actual_digit'].unique()
+    df_clean.to_numpy()
+    
+    return df_clean, df_clean.to_numpy()
+
 ###################
+def predictiveModel(training_set: np.ndarray, features: np.ndarray) -> int:
+    """
+    Summary: Implementation of 1-NN
+    Args:
+    - training_set: numpy array, first column is the label, remaining colums are features
+    - features: numpy array of features for a single sample
+    
+    Returns: 
+    -predicted label as an int using euclidean distance and single closest neighbor. 
+    """
+    X_train = training_set[:, 1:] #all columns except first which is the label, extract training features
+    y_train = training_set[:, 0].astype(int) # extract training labels
+    distance = np.linalg.norm(X_train - features, axis = 1) # Euclidean distances to all training points
+    idx_min = np.argmin(distance)      # index of closest training sample
+    predicted_label = int(y_train[idx_min]) # label of nearest neighbor
+    return predicted_label####################3
 def main() -> None:
     # for read_csv, use header=0 when row 0 is a header row
     filename = 'digits.csv'
