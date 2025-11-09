@@ -48,28 +48,23 @@ def fetchDigit(df: pd.core.frame.DataFrame, which_row: int) -> tuple[int, np.nda
     return (digit, pixels)              # return a tuple
 
 ###########################################################################
-def cleanTheData(df:pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
-    """_summary_
-
-    Args:
-        df (pd.DataFrame): _description_
-
-    Returns:
-        tuple[pd.DataFrame, np.ndarray]: _description_
+def cleanTheData(df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
     """
-    df_clean = df.copy()
-    df_clean = list(df_clean.dropna())   # this removes all rows with nan items
-    pixels = df_clean.columns            # "list" of columns
+    Cleans the digits dataframe by removing rows with NaN values.
     
-    # let's create a dictionary to look up any column index by name
-    pixel_name_to_index = {}
+    Args:
+        df (pd.DataFrame): Raw dataframe from digits.csv
     
-    for i, name in enumerate(pixels):
-        pixel_name_to_index[name] = i  # using the name (as key), assign the value (i)
-    df_clean = df_clean['actual_digit'].unique()
-    df_clean.to_numpy()
+    Returns:
+        tuple[pd.DataFrame, np.ndarray]: Cleaned dataframe and numpy array version
+    """
+    # Remove rows with any NaN values
+    df_clean = df.dropna()
     
-    return df_clean, df_clean.to_numpy()
+    # Convert to numpy array
+    data_array = df_clean.to_numpy()
+    
+    return df_clean, data_array
 
 ###################
 def predictiveModel(training_set: np.ndarray, features: np.ndarray) -> int:
