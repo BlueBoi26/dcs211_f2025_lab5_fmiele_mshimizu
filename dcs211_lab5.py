@@ -106,6 +106,65 @@ def main() -> None:
     # OK!  Onward to knn for digits! (based on your iris work...)
     #
 
+    # Step 1: Clean the data
+    df_clean, data_array = cleanTheData(df)
+    print(f"\nCleaned data shape: {data_array.shape}")
+    
+    # Step 3: Split data - first 80% train, last 20% test
+    split_index = int(0.8 * len(data_array))
+    train_set = data_array[:split_index]
+    test_set = data_array[split_index:]
+    
+    print(f"Training set size: {len(train_set)}")
+    print(f"Test set size: {len(test_set)}")
+    
+    # Test the 1-NN model
+    correct = 0
+    total = len(test_set)
+    
+    print("\nTesting 1-NN (80% train, 20% test):")
+    for i in range(total):
+        # Get features (all columns except last) and actual label (last column)
+        features = test_set[i, :-1]
+        actual_label = int(test_set[i, -1])
+        
+        # Predict using 1-NN
+        predicted_label = predictiveModel(train_set, features)
+        
+        if predicted_label == actual_label:
+            correct += 1
+        
+        # Simple progress indicator
+        if (i + 1) % 50 == 0:
+            print(f"  Progress: {i + 1}/{total}")
+    
+    accuracy = correct / total
+    print(f"\nAccuracy (80/20 split): {accuracy:.3f}")
+    print(f"Correct: {correct} out of {total}")
+    
+    # Step 4: Swap the split - first 20% test, last 80% train
+    train_set = data_array[split_index:]
+    test_set = data_array[:split_index]
+    
+    correct = 0
+    total = len(test_set)
+    
+    print("\nTesting 1-NN (20% test, 80% train - swapped)...")
+    for i in range(total):
+        features = test_set[i, :-1]
+        actual_label = int(test_set[i, -1])
+        
+        predicted_label = predictiveModel(train_set, features)
+        
+        if predicted_label == actual_label:
+            correct += 1
+        
+        if (i + 1) % 50 == 0:
+            print(f"  Progress: {i + 1}/{total}")
+    
+    accuracy = correct / total
+    print(f"\nAccuracy (20/80 split swapped): {accuracy:.3f}")
+    print(f"Correct: {correct} out of {total}")
 ###############################################################################
 # wrap the call to main inside this if so that _this_ file can be imported
 # and used as a library, if necessary, without executing its main
