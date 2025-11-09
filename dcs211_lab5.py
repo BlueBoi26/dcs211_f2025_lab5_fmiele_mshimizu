@@ -1,3 +1,4 @@
+import os
 import numpy as np      # numpy is Python's "array" library
 import pandas as pd     # Pandas is Python's "data" library ("dataframe" == spreadsheet)
 import seaborn as sns   # yay for Seaborn plots!
@@ -58,37 +59,68 @@ def cleanTheData(df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
     Returns:
         tuple[pd.DataFrame, np.ndarray]: Cleaned dataframe and numpy array version
     """
-    # Remove rows with any NaN values
-    df_clean = df.dropna()
-    
-    # Convert to numpy array
-    data_array = df_clean.to_numpy()
-    
-    return df_clean, data_array
+    print(f"Original dataframe shape: {df.shape}")
 
+    # Drop any completely empty columns (sometimes digits.csv has one)
+    df = df.dropna(axis=1, how='all')
+
+    # Convert everything to numeric; any non-numeric becomes NaN
+    df = df.apply(pd.to_numeric, errors='coerce')
+
+    # Count NaNs before removing
+    num_nans = df.isna().sum().sum()
+    print(f"Number of NaN values: {num_nans}")
+
+    # Drop rows containing NaN
+    df_clean = df.dropna()
+    print(f"After dropna shape: {df_clean.shape}")
+
+    # Convert to NumPy array
+    data_array = df_clean.to_numpy()
+
+    # Safety check
+    if len(data_array) == 0:
+        print("⚠️ ERROR: No valid data rows after cleaning! Check digits.csv formatting.")
+    return df_clean, data_array
 ###################
 def predictiveModel(training_set: np.ndarray, features: np.ndarray) -> int:
     """
     Summary: Implementation of 1-NN
     Args:
-    - training_set: numpy array, first column is the label, remaining colums are features
+    - training_set: numpy array, last column is the label, remaining columns are features
     - features: numpy array of features for a single sample
     
     Returns: 
     -predicted label as an int using euclidean distance and single closest neighbor. 
     """
-    X_train = training_set[:, 1:] #all columns except first which is the label, extract training features
-    y_train = training_set[:, 0].astype(int) # extract training labels
-    distance = np.linalg.norm(X_train - features, axis = 1) # Euclidean distances to all training points
-    idx_min = np.argmin(distance)      # index of closest training sample
-    predicted_label = int(y_train[idx_min]) # label of nearest neighbor
-    return predicted_label####################3
+    X_train = training_set[:, :-1]  # All columns except LAST (features)
+    y_train = training_set[:, -1].astype(int)  # LAST column is label
+    distance = np.linalg.norm(X_train - features, axis = 1)
+    idx_min = np.argmin(distance)
+    predicted_label = int(y_train[idx_min])
+    return predicted_label
+
+####################
 def main() -> None:
     # for read_csv, use header=0 when row 0 is a header row
-    filename = 'digits.csv'
-    df = pd.read_csv(filename, header = 0)
+    filename = os.path.join(os.path.dirname(__file__), 'digits.csv')
+
+    # Read CSV robustly — handle spaces and blank columns
+    df = pd.read_csv(filename, header=0, skipinitialspace=True)
+
+    print("Raw df shape:", df.shape)
+    print("Columns:", df.columns.tolist()[:10], "...")
     print(df.head())
-    print(f"{filename} : file read into a pandas dataframe...")
+
+    # Clean the data using our improved function
+    df_clean, data_array = cleanTheData(df)
+
+    # Safety check to prevent ZeroDivisionError
+    if len(data_array) == 0:
+        print("No data available after cleaning. Please verify digits.csv formatting.")
+        return
+
+    print(f"\nCleaned data shape: {data_array.shape}")
 
     num_to_draw = 5
     for i in range(num_to_draw):
@@ -143,13 +175,16 @@ def main() -> None:
     print(f"Correct: {correct} out of {total}")
     
     # Step 4: Swap the split - first 20% test, last 80% train
-    train_set = data_array[split_index:]
-    test_set = data_array[:split_index]
-    
+    #train_set = data_array[split_index:]
+    #test_set = data_array[:split_index]
+    split_index_20 = int(0.2 * len(data_array))  # Calculate 20% split point
+    test_set = data_array[:split_index_20]       # First 20% as test
+    train_set = data_array[split_index_20:]      # Last 80% as train
+
     correct = 0
     total = len(test_set)
     
-    print("\nTesting 1-NN (20% test, 80% train - swapped)...")
+    print("\nTesting 1-NN (20% test, 80% train - swapped):")
     for i in range(total):
         features = test_set[i, :-1]
         actual_label = int(test_set[i, -1])
@@ -165,6 +200,50 @@ def main() -> None:
     accuracy = correct / total
     print(f"\nAccuracy (20/80 split swapped): {accuracy:.3f}")
     print(f"Correct: {correct} out of {total}")
+    
+    # Step 5: Visualize misclassified digits
+    print("\n--- Finding Misclassified Digits ---")
+    
+    # Use the first split again (80% train, 20% test)
+    split_index = int(0.8 * len(data_array))
+    train_set = data_array[:split_index]
+    test_set = data_array[split_index:]
+    
+    print(f"Data array length: {len(data_array)}")
+    print(f"Split index: {split_index}")
+    print(f"Train set size: {len(train_set)}")
+    print(f"Test set size: {len(test_set)}")
+    
+    misclassified = []  # Store info about wrong predictions
+    
+    for i in range(len(test_set)):
+        features = test_set[i, :-1]
+        actual_label = int(test_set[i, -1])
+        
+        predicted_label = predictiveModel(train_set, features)
+        
+        # If prediction is WRONG, save it
+        if predicted_label != actual_label:
+            misclassified.append({
+                'index': i,
+                'actual': actual_label,
+                'predicted': predicted_label,
+                'pixels': features.reshape(8, 8)  # Reshape back to 8x8 for drawing
+            })
+        
+        # Stop after finding 5 misclassified digits
+        if len(misclassified) >= 5:
+            break
+    
+    # Draw the first 5 misclassified digits
+    print(f"\nFound {len(misclassified)} misclassified digits. Visualizing them:")
+    for i, item in enumerate(misclassified):
+        print(f"\nMisclassified #{i+1}:")
+        print(f"  Actual digit: {item['actual']}")
+        print(f"  Predicted as: {item['predicted']}")
+        drawDigitHeatmap(item['pixels'], showNumbers=True)
+        plt.show()
+
 ###############################################################################
 # wrap the call to main inside this if so that _this_ file can be imported
 # and used as a library, if necessary, without executing its main
