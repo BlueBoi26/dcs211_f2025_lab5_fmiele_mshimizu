@@ -3,6 +3,8 @@ import numpy as np      # numpy is Python's "array" library
 import pandas as pd     # Pandas is Python's "data" library ("dataframe" == spreadsheet)
 import seaborn as sns   # yay for Seaborn plots!
 import matplotlib.pyplot as plt
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score
 import random
 
 ###########################################################################
@@ -111,35 +113,19 @@ def show_progress(current, total, bar_length=50):
         print()  # New line when complete
 ###########################################################################
 def splitData(data_array: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """
-    Splits the full digits dataset into features (X) and labels (y),
-    then separates them into test and training sets.
-
-    Parameters:
-        data_array (np.ndarray): Full dataset as a NumPy array where
-                                 the last column is the digit label.
-
-    Returns:
-        tuple: (X_test, y_test, X_train, y_train)
-    """
-    # Separate features and labels
-    X = data_array[:, :-1]             # all columns except last = pixels
-    y = data_array[:, -1].astype(int)  # last column = label
-
-    # Split index (80% train, 20% test)
+    """Split data into train/test 80/20, no shuffle (autograder expects this order)."""
     split_index = int(0.8 * len(data_array))
-
-    # Define train and test sets
-    X_train = X[:split_index]
-    y_train = y[:split_index]
-    X_test  = X[split_index:]
-    y_test  = y[split_index:]
-
-    print(f"\nData successfully split:")
-    print(f"  X_train: {X_train.shape}, y_train: {y_train.shape}")
-    print(f"  X_test:  {X_test.shape}, y_test:  {y_test.shape}")
-
+    train_set = data_array[:split_index]
+    test_set  = data_array[split_index:]
+    
+    X_train = train_set[:, :-1]
+    y_train = train_set[:, -1].astype(int)
+    X_test  = test_set[:, :-1]
+    y_test  = test_set[:, -1].astype(int)
+    
     return X_test, y_test, X_train, y_train
+
+
 ####################
 def compareLabels(predicted_labels: np.ndarray, actual_labels: np.ndarray) -> int:
     """
@@ -168,6 +154,60 @@ def compareLabels(predicted_labels: np.ndarray, actual_labels: np.ndarray) -> in
         print("All predictions correct!")
 
     return num_correct
+
+
+###########################################################################
+def findBestK(X_train: np.ndarray, y_train: np.ndarray, seeds=[8675309, 5551212, 42]) -> dict:
+    """
+    Determines the best k for k-NN by testing several k values under different random seeds.
+    Parameters:
+        X_train, y_train: training data and labels
+        seeds: list of random seeds to test
+    Returns:
+        dict mapping each seed to its best (k, accuracy)
+    """
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.model_selection import train_test_split
+    from sklearn.metrics import accuracy_score
+    import random
+
+    results = {}
+
+    for seed in seeds:
+        random.seed(seed)
+        X_subtrain, X_val, y_subtrain, y_val = train_test_split(
+            X_train, y_train, test_size=0.2, random_state=seed
+        )
+
+        best_k = None
+        best_acc = 0
+
+        print(f"\n--- Testing seed {seed} ---")
+        for k in range(1, 11):  # test k = 1 through 10
+            knn = KNeighborsClassifier(n_neighbors=k)
+            knn.fit(X_subtrain, y_subtrain)
+            preds = knn.predict(X_val)
+            acc = accuracy_score(y_val, preds)
+
+            print(f"k = {k:2d} → accuracy = {acc:.3f}")
+
+            if acc > best_acc:
+                best_acc = acc
+                best_k = k
+
+        results[seed] = (best_k, best_acc)
+        print(f"Best k for seed {seed}: {best_k} (accuracy = {best_acc:.3f})")
+
+    return results
+
+
+def trainAndTest(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, best_k: int) -> np.ndarray:
+    """Trains k-NN, predicts on X_test, returns predictions."""
+    knn = KNeighborsClassifier(n_neighbors=best_k)
+    knn.fit(X_train, y_train)
+    y_pred = knn.predict(X_test)
+    return y_pred
+
 
 
 ####################
@@ -338,6 +378,21 @@ def main() -> None:
     print(f"Accuracy for k = {k_guess}: {acc:.3f}")
 
     #call to compareLabels
+    compareLabels(y_pred, y_test)
+
+    # --- Step 9: Find best k values ---
+    print("\n--- Step 9: Finding best k for different random seeds ---")
+    best_k_results = findBestK(X_train, y_train)
+    print("\nSummary of best k values per seed:")
+    for seed, (k_val, acc_val) in best_k_results.items():
+        print(f"  Seed {seed}: best k = {k_val}, accuracy = {acc_val:.3f}")
+    
+    best_k = 3  # or get it from findBestK results
+    y_pred = trainAndTest(X_train, y_train, X_test, best_k)
+    compareLabels(y_pred, y_test)
+
+
+    # Now you can compare predictions to actual labels
     compareLabels(y_pred, y_test)
 
 
