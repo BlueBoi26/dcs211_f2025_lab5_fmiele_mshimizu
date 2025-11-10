@@ -113,7 +113,6 @@ def show_progress(current, total, bar_length=50):
         print()  # New line when complete
 ###########################################################################
 from sklearn.model_selection import train_test_split
-
 def splitData(data_array: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Split data into train/test 80/20, using sklearn's train_test_split.
@@ -129,17 +128,13 @@ def splitData(data_array: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarra
     y = data_array[:, -1].astype(int)
 
     # Use sklearn to ensure randomized but reproducible splitting
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=12121, shuffle=True
-    )
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.20)
 
     print(f"\nData successfully split (80/20):")
     print(f"  X_train: {X_train.shape}, y_train: {y_train.shape}")
     print(f"  X_test:  {X_test.shape}, y_test:  {y_test.shape}")
 
-    # Return in the order the autograder expects
     return X_test, y_test, X_train, y_train
-
 
 
 ####################
@@ -200,7 +195,7 @@ def findBestK(X_train: np.ndarray, y_train: np.ndarray, seeds=[8675309, 5551212,
 
         print(f"\n--- Testing seed {seed} ---")
         for k in range(1, 11):  # test k = 1 through 10
-            knn = KNeighborsClassifier(n_neighbors=k)
+            knn = KNeighborsClassifier(n_neighbors=k, weights = 'distance')
             knn.fit(X_subtrain, y_subtrain)
             preds = knn.predict(X_val)
             acc = accuracy_score(y_val, preds)
@@ -218,33 +213,36 @@ def findBestK(X_train: np.ndarray, y_train: np.ndarray, seeds=[8675309, 5551212,
 
 
 def trainAndTest(X_train: np.ndarray, y_train: np.ndarray,
-                 X_test: np.ndarray, y_test: np.ndarray,
-                 best_k: int) -> np.ndarray:
+                 X_test: np.ndarray, best_k: int) -> np.ndarray:
     """
     Trains a k-NN classifier using the given best_k, predicts labels for X_test,
-    prints the accuracy and misclassifications using compareLabels, and returns predictions.
-    
+    and returns predictions. Matches autograder expectations exactly.
+
     Args:
         X_train (np.ndarray): Training features
         y_train (np.ndarray): Training labels
         X_test (np.ndarray): Test features
-        y_test (np.ndarray): Test labels
         best_k (int): Optimal number of neighbors to use
-    
+
     Returns:
         np.ndarray: Predicted labels for X_test
     """
+    from sklearn.neighbors import KNeighborsClassifier
+
     print(f"\n--- Step 10: Training and testing final k-NN model (k = {best_k}) ---")
 
+    # Train on given X_train/y_train only
     knn = KNeighborsClassifier(n_neighbors=best_k)
     knn.fit(X_train, y_train)
+
+    #Predict exactly one label per row in X_test
     y_pred = knn.predict(X_test)
 
-    acc = accuracy_score(y_test, y_pred)
-    print(f"Final model accuracy with k = {best_k}: {acc:.3f}")
-
-    compareLabels(y_pred, y_test)
+    #Return predictions only 
+    print(f"Predicted {len(y_pred)} labels using k = {best_k}.")
     return y_pred
+
+
 
 
 
@@ -290,15 +288,23 @@ def main() -> None:
     df_clean, data_array = cleanTheData(df)
     print(f"\nCleaned data shape: {data_array.shape}")
     
-    # Step 3: Split data - first 80% train, last 20% test
-    split_index = int(0.8 * len(data_array))
-    train_set = data_array[:split_index]
-    test_set = data_array[split_index:]
+    from sklearn.model_selection import train_test_split
+
+    # Step 3: 80/20 train/test split
+    X = data_array[:, :-1]
+    y = data_array[:, -1].astype(int)
+
     
-    print(f"Training set size: {len(train_set)}")
-    print(f"Test set size: {len(test_set)}")
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+
+    print(f"Training set size: {len(X_train)}")
+    print(f"Test set size: {len(X_test)}")
+
+    # Combine back into train/test sets for your 1-NN loop
+    train_set = np.column_stack((X_train, y_train))
+    test_set = np.column_stack((X_test, y_test))
     
-    # Test the 1-NN model
+        # Test the 1-NN model
     correct = 0
     total = len(test_set)
     
@@ -320,11 +326,12 @@ def main() -> None:
     print(f"Correct: {correct} out of {total}")
     
     # Step 4: Swap the split - first 20% test, last 80% train
-    #train_set = data_array[split_index:]
-    #test_set = data_array[:split_index]
-    split_index_20 = int(0.2 * len(data_array))  # Calculate 20% split point
-    test_set = data_array[:split_index_20]       # First 20% as test
-    train_set = data_array[split_index_20:]      # Last 80% as train
+    # Use sklearn train_test_split again
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, shuffle=False)
+
+    # Combine back into train/test sets for your 1-NN loop
+    train_set = np.column_stack((X_train, y_train))
+    test_set = np.column_stack((X_test, y_test))
 
     correct = 0
     total = len(test_set)
@@ -425,12 +432,11 @@ def main() -> None:
     for seed, (k_val, acc_val) in best_k_results.items():
         print(f"  Seed {seed}: best k = {k_val}, accuracy = {acc_val:.3f}")
     
-    best_k = 3  # or get it from findBestK results
-    y_pred = trainAndTest(X_train, y_train, X_test, y_test, best_k)
-    compareLabels(y_pred, y_test)
+    # Step 10: Train and test final model
+    best_k = 3
+    y_pred = trainAndTest(X_train, y_train, X_test, best_k)
 
-
-    # Now you can compare predictions to actual labels
+    # Compare and print accuracy
     compareLabels(y_pred, y_test)
 
 
