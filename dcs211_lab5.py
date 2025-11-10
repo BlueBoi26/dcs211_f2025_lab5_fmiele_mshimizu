@@ -80,7 +80,7 @@ def cleanTheData(df: pd.DataFrame) -> tuple[pd.DataFrame, np.ndarray]:
 
     # Safety check
     if len(data_array) == 0:
-        print("⚠️ ERROR: No valid data rows after cleaning! Check digits.csv formatting.")
+        print("ERROR: No valid data rows after cleaning! Check digits.csv formatting.")
     return df_clean, data_array
 ###################
 def predictiveModel(training_set: np.ndarray, features: np.ndarray) -> int:
@@ -105,7 +105,7 @@ def show_progress(current, total, bar_length=50):
     """Display a text-based progress bar"""
     percent = current / total
     filled = int(bar_length * percent)
-    bar = '█' * filled + '-' * (bar_length - filled)
+    bar = '█' * filled + '-' * (bar_length - filled) # Got this line from ChatGPT, do not know what the blue character is
     print(f'\r[{bar}] {percent*100:.1f}% ({current}/{total})', end='', flush=True)
     if current == total:
         print()  # New line when complete
@@ -140,6 +140,35 @@ def splitData(data_array: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarra
     print(f"  X_test:  {X_test.shape}, y_test:  {y_test.shape}")
 
     return X_test, y_test, X_train, y_train
+####################
+def compareLabels(predicted_labels: np.ndarray, actual_labels: np.ndarray) -> int:
+    """
+    Prints only incorrect predictions for readability.
+    """
+    num_labels = len(predicted_labels)
+    num_correct = 0
+    mismatches = []
+
+    for i in range(num_labels):
+        predicted = int(round(predicted_labels[i]))
+        actual = int(round(actual_labels[i]))
+        if predicted == actual:
+            num_correct += 1
+        else:
+            mismatches.append((i, predicted, actual))
+
+    print(f"\nCorrect: {num_correct} out of {num_labels}")
+    print(f"Accuracy: {num_correct / num_labels:.3f}")
+
+    if mismatches:
+        print("\nFirst 10 incorrect predictions:")
+        for i, pred, act in mismatches[:10]:
+            print(f"row {i:>3d} : predicted {pred:<3d} actual {act:<3d}")
+    else:
+        print("All predictions correct!")
+
+    return num_correct
+
 
 ####################
 def main() -> None:
@@ -232,8 +261,8 @@ def main() -> None:
         if predicted_label == actual_label:
             correct += 1
         
-        if (i + 1) % 50 == 0:
-            print(f"  Progress: {i + 1}/{total}")
+        # Show progress bar
+        show_progress(i + 1, total)
     
     accuracy = correct / total
     print(f"\nAccuracy (20/80 split swapped): {accuracy:.3f}")
@@ -286,6 +315,31 @@ def main() -> None:
 
     # Split the cleaned data into training and test sets
     X_test, y_test, X_train, y_train = splitData(data_array)
+
+    # --- Step 8: Run scikit-learn k-NN classifier ---
+    print("\n--- Step 8: Scikit-learn k-NN Classifier ---")
+
+    from sklearn.neighbors import KNeighborsClassifier
+    from sklearn.metrics import accuracy_score
+
+    # Guess a value for k (start small; odd numbers help avoid ties)
+    k_guess = 3
+    print(f"Using k = {k_guess}")
+
+    # Train the classifier
+    knn = KNeighborsClassifier(n_neighbors=k_guess)
+    knn.fit(X_train, y_train)
+
+    # Predict labels for the test set
+    y_pred = knn.predict(X_test)
+
+    # Compute accuracy
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Accuracy for k = {k_guess}: {acc:.3f}")
+
+    #call to compareLabels
+    compareLabels(y_pred, y_test)
+
 
 
 ###############################################################################
