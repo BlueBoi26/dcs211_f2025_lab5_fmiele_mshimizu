@@ -112,18 +112,34 @@ def show_progress(current, total, bar_length=50):
     if current == total:
         print()  # New line when complete
 ###########################################################################
+from sklearn.model_selection import train_test_split
+
 def splitData(data_array: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-    """Split data into train/test 80/20, no shuffle (autograder expects this order)."""
-    split_index = int(0.8 * len(data_array))
-    train_set = data_array[:split_index]
-    test_set  = data_array[split_index:]
+    """
+    Split data into train/test 80/20, using sklearn's train_test_split.
     
-    X_train = train_set[:, :-1]
-    y_train = train_set[:, -1].astype(int)
-    X_test  = test_set[:, :-1]
-    y_test  = test_set[:, -1].astype(int)
+    Args:
+        data_array (np.ndarray): Full dataset as a NumPy array where the last
+            column is the label.
     
+    Returns:
+        tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]: X_test, y_test, X_train, y_train
+    """
+    X = data_array[:, :-1]
+    y = data_array[:, -1].astype(int)
+
+    # Use sklearn to ensure randomized but reproducible splitting
+    X_train, X_test, y_train, y_test = train_test_split(
+        X, y, test_size=0.2, random_state=12121, shuffle=True
+    )
+
+    print(f"\nData successfully split (80/20):")
+    print(f"  X_train: {X_train.shape}, y_train: {y_train.shape}")
+    print(f"  X_test:  {X_test.shape}, y_test:  {y_test.shape}")
+
+    # Return in the order the autograder expects
     return X_test, y_test, X_train, y_train
+
 
 
 ####################
@@ -201,11 +217,33 @@ def findBestK(X_train: np.ndarray, y_train: np.ndarray, seeds=[8675309, 5551212,
     return results
 
 
-def trainAndTest(X_train: np.ndarray, y_train: np.ndarray, X_test: np.ndarray, best_k: int) -> np.ndarray:
-    """Trains k-NN, predicts on X_test, returns predictions."""
+def trainAndTest(X_train: np.ndarray, y_train: np.ndarray,
+                 X_test: np.ndarray, y_test: np.ndarray,
+                 best_k: int) -> np.ndarray:
+    """
+    Trains a k-NN classifier using the given best_k, predicts labels for X_test,
+    prints the accuracy and misclassifications using compareLabels, and returns predictions.
+    
+    Args:
+        X_train (np.ndarray): Training features
+        y_train (np.ndarray): Training labels
+        X_test (np.ndarray): Test features
+        y_test (np.ndarray): Test labels
+        best_k (int): Optimal number of neighbors to use
+    
+    Returns:
+        np.ndarray: Predicted labels for X_test
+    """
+    print(f"\n--- Step 10: Training and testing final k-NN model (k = {best_k}) ---")
+
     knn = KNeighborsClassifier(n_neighbors=best_k)
     knn.fit(X_train, y_train)
     y_pred = knn.predict(X_test)
+
+    acc = accuracy_score(y_test, y_pred)
+    print(f"Final model accuracy with k = {best_k}: {acc:.3f}")
+
+    compareLabels(y_pred, y_test)
     return y_pred
 
 
@@ -388,7 +426,7 @@ def main() -> None:
         print(f"  Seed {seed}: best k = {k_val}, accuracy = {acc_val:.3f}")
     
     best_k = 3  # or get it from findBestK results
-    y_pred = trainAndTest(X_train, y_train, X_test, best_k)
+    y_pred = trainAndTest(X_train, y_train, X_test, y_test, best_k)
     compareLabels(y_pred, y_test)
 
 
