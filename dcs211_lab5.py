@@ -100,6 +100,47 @@ def predictiveModel(training_set: np.ndarray, features: np.ndarray) -> int:
     predicted_label = int(y_train[idx_min])
     return predicted_label
 
+
+def show_progress(current, total, bar_length=50):
+    """Display a text-based progress bar"""
+    percent = current / total
+    filled = int(bar_length * percent)
+    bar = '█' * filled + '-' * (bar_length - filled)
+    print(f'\r[{bar}] {percent*100:.1f}% ({current}/{total})', end='', flush=True)
+    if current == total:
+        print()  # New line when complete
+###########################################################################
+def splitData(data_array: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Splits the full digits dataset into features (X) and labels (y),
+    then separates them into test and training sets.
+
+    Parameters:
+        data_array (np.ndarray): Full dataset as a NumPy array where
+                                 the last column is the digit label.
+
+    Returns:
+        tuple: (X_test, y_test, X_train, y_train)
+    """
+    # Separate features and labels
+    X = data_array[:, :-1]             # all columns except last = pixels
+    y = data_array[:, -1].astype(int)  # last column = label
+
+    # Split index (80% train, 20% test)
+    split_index = int(0.8 * len(data_array))
+
+    # Define train and test sets
+    X_train = X[:split_index]
+    y_train = y[:split_index]
+    X_test  = X[split_index:]
+    y_test  = y[split_index:]
+
+    print(f"\nData successfully split:")
+    print(f"  X_train: {X_train.shape}, y_train: {y_train.shape}")
+    print(f"  X_test:  {X_test.shape}, y_test:  {y_test.shape}")
+
+    return X_test, y_test, X_train, y_train
+
 ####################
 def main() -> None:
     # for read_csv, use header=0 when row 0 is a header row
@@ -156,19 +197,16 @@ def main() -> None:
     
     print("\nTesting 1-NN (80% train, 20% test):")
     for i in range(total):
-        # Get features (all columns except last) and actual label (last column)
         features = test_set[i, :-1]
         actual_label = int(test_set[i, -1])
-        
-        # Predict using 1-NN
+    
         predicted_label = predictiveModel(train_set, features)
-        
+    
         if predicted_label == actual_label:
             correct += 1
-        
-        # Simple progress indicator
-        if (i + 1) % 50 == 0:
-            print(f"  Progress: {i + 1}/{total}")
+    
+        # Show progress bar
+        show_progress(i + 1, total)
     
     accuracy = correct / total
     print(f"\nAccuracy (80/20 split): {accuracy:.3f}")
@@ -243,6 +281,12 @@ def main() -> None:
         print(f"  Predicted as: {item['predicted']}")
         drawDigitHeatmap(item['pixels'], showNumbers=True)
         plt.show()
+        # --- SCikit-learn assisted portion (Step 7 onwards) ---
+    print("\n--- Moving into scikit-learn k-NN section ---")
+
+    # Split the cleaned data into training and test sets
+    X_test, y_test, X_train, y_train = splitData(data_array)
+
 
 ###############################################################################
 # wrap the call to main inside this if so that _this_ file can be imported
